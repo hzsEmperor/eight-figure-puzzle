@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="http://apps.bdimg.com/libs/jquery/1.10.2/jquery.min.js"></script>
+    <style>
+        body {
+            text-align: center;
+            width: 100%;
+        }
+
+        #map {
+            vertical-align: middle;
+            width: 600px;
+            height: 600px;
+            background-color: #e9e7ef;
+        }
+
+        .node {
+            background-color: white;
+            margin: 1px;
+            width: 28px;
+            height: 28px;
+            color: black;
+            float: left;
+            font-size: xx-small;
+        }
+
+        .empty {
+            background-color: #fff;
+        }
+
+        .open {
+            color: #fff;
+            background-color: #1bd1a5;
+        }
+
+        .wall {
+            color: #fff;
+            background-color: #574266;
+        }
+
+        .start {
+            color: #fff;
+            background-color: #ffcc25;
+        }
+
+        .end {
+            color: #fff;
+            background-color: #ff461f;
+        }
+
+        .current {
+            color: #fff;
+            background-color: #fff143;
+        }
+
+        .close {
+            color: #fff;
+            background-color: #ac5d8e;
+            -webkit-box-shadow: 0 0 10px inset rgba(0, 57, 204, .5);
+            -moz-box-shadow: 0 0 10px inset rgba(0, 57, 204, .5);
+            box-shadow: 0 0 10px inset rgba(0, 57, 204, .5);
+        }
+
+        .node .top-left, .node .bottom-left, .node .bottom-right {
+            display: none;
+        }
+
+        .top-left {
+            float: left;
+            display: block;
+        }
+
+        .bottom-left {
+            float: left;
+        }
+
+        .bottom-right {
+            float: right;
+        }
+
+        .open .top-left, .open .bottom-left, .open .bottom-right, .close .top-left, .close .bottom-left, .close .bottom-right {
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map">
+</div>
+</body>
+<script>
+    var normalDiv = "<div class='node {type}' id='{id}'>" +
+            "<span class='top-left'><span>{h}</span></span><br>" +
+            "<span class='bottom-left'><span>{g}</span></span>" +
+            "<span class='bottom-right'><span>{f}</span></span></div>";
+    var EMPTY = 'empty';
+    var OPEN = 'open';
+    var CLOSE = 'close';
+    var START = 'start';
+    var END = 'end';
+    var WALL = 'wall';
+    var CURRENT = 'current'
+    var STEP = 1;
+    var openDivInnerHTML = "";
+    var map = $('#map');
+    var map_arr = [];
+
+    var start;
+    var end;
+
+    var open_list = [];
+    var close_list = [];
+    var currentNodeId;
+
+
+    initPro();
+    A_find_path();
+
+    function A_find_path() {
+        //判断是否到达终点
+        for (var tmpi in open_list) {
+            if (open_list[tmpi].type == end) {
+                return alert('ok');
+            }
+        }
+        //按照F值排序
+        sortOpenList();
+
+        //4、取出open_list中F值最小的那个节点，添加到close_list
+        var node = open_list.pop();
+        if (node.type != START)
+            node.type = CLOSE;
+        currentNodeId = node.id;
+        close_list.push(node);
+
+        //5、检测该节点，遍历四周，忽略不可走(wall or in close_list)的节点，将剩余的未在open_list中的节点加入其中
+        var around_list = aroundNode(node);
+
+        var have_end_node = false;
+
+        for (var i in around_list) {
+            var select_node = around_list[i];
+            if (select_node.type == END) {
+                //终点
+                have_end_node = true;
+                break;
+            } else if (select_node.type == EMPTY) {
+                select_node.type = OPEN;
+                select_node.father = node.id;
+                //计算G值和F值
+                select_node.g = node.g + STEP;
+                select_node.f = get_F_value(select_node);
+                select_node.h = select_node.g + select_node.f;
+
+                open_list.push(select_node);
+            } else if (select_node.type == OPEN && select_node.g > node.g + STEP) {
+                //6、如果某个相邻的方格已经在 open list 中，则检查这条路径是否更优，
+                //  ( 我们选中的方格 ) 到达那个方格是否具有更小的 G 值。如果没有，不做任何操作。
+                select_node.father = node.id;
+
+                //7、计算G值和F值
+                select_node.g = node.g + STEP;
+                select_node.f = get_F_value(select_node);
+                select_node.h = select_node.g + select_node.f;
+
+                replaceArr(open_list, select_node);
+            }
+        }
+        setTimeout(reloadMapArr, 100);
+        if (have_end_node) {
+            getPath(node)
+            setTimeout(function () {
+                alert('find end node')
+            }, 120);
+            ;
+        } else if (open_list.length > 0) {
+            setTimeout(A_find_path, 100)
+        } else {
+            setTimeout(function () {
+                alert('can not find end node')
+            }, 120);
+            ;
+        }
+    }
+    function sortOpenList() {
+        open_list.sort(function (a, b) {
+            return b.h - a.h;
+        });
+    }
+    function getPath(lastNode) {
+        while (lastNode.type != START) {
+            if (lastNode.father == -1) {
+                break;
+            }
+            var x = Math.floor(lastNode.father / 20);
+            var y = lastNode.father % 20;
+            console.log(x + ":" + y);
+            map_arr[x][y].type = CURRENT;
+            lastNode = map_arr[x][y];
+        }
+        reloadMapArr();
+    }
+
+
+    function reloadMapArr() {
+        map.html('');
+        for (var x = 0; x < 20; x++) {
+            for (var y = 0; y < 20; y++) {
+                if (currentNodeId == map_arr[x][y].id) {
+                    map.append(normalDiv.render({
+                        type: CURRENT,
+                        id: map_arr[x][y].id,
+                        f: map_arr[x][y].f,
+                        g: map_arr[x][y].g,
+                        h: map_arr[x][y].h,
+                    }));
+                } else
+                    map.append(normalDiv.render(map_arr[x][y]));
+            }
+        }
+    }
+
+    function get_F_value(node) {
+        return Math.abs(node.x - end.x) + Math.abs(node.y - end.y);
+    }
+
+    function replaceArr(arr, item) {
+        for (var i in arr)
+            if (arr[i].id == item.id) {
+                arr[i] = item;
+                return;
+            }
+
+    }
+
+
+    function aroundNode(node) {
+        var around_list = [];
+
+        try {
+            if (node.y > 0)
+                around_list.push(map_arr[node.x][node.y - 1]);
+            if (node.y < 19)
+                around_list.push(map_arr[node.x][node.y + 1]);
+            if (node.x < 19)
+                around_list.push(map_arr[node.x + 1][node.y]);
+            if (node.x > 0)
+                around_list.push(map_arr[node.x - 1][node.y]);
+        } catch (e) {
+            console.log("error");
+            console.log(node);
+        }
+
+        //简单处理
+        for (var i in around_list) {
+            var div = around_list[i];
+            switch (div.type) {
+                case WALL:
+                    around_list.splice(i, 1);
+                    break;
+                case CLOSE:
+                    if (node.g + STEP > div.g) {
+                        around_list.splice(i, 1);
+                    }
+                    break;
+            }
+        }
+        return around_list;
+    }
+
+
+    function initPro() {
+        String.prototype.render = function (context) {
+            return render(this, context);
+        };
+        for (var x = 0; x < 20; x++) {
+            var row = [];
+            for (var y = 0; y < 20; y++) {
+                var id = x * 20 + y;
+                map.append(normalDiv.render({
+                    id: id
+                }));
+                row.push({
+                    id: id,
+                    x: x,
+                    y: y,
+                    f: 0,
+                    g: 0,
+                    h: 0,
+                    type: EMPTY,
+                    father: -1
+                });
+            }
+            map_arr.push(row);
+        }
+        console.log(map_arr);
+        for (var j = 6; j < 10; j++) {
+            $('#' + map_arr[6][j].id).addClass('wall');
+            map_arr[6][j].type = WALL;
+            $('#' + map_arr[13][j].id).addClass('wall');
+            map_arr[13][j].type = WALL;
+        }
+
+        for (var j = 13; j < 18; j++) {
+            $('#' + map_arr[6][j].id).addClass('wall');
+            map_arr[6][j].type = WALL;
+            $('#' + map_arr[13][j].id).addClass('wall');
+            map_arr[13][j].type = WALL;
+        }
+
+        for (var i = 6; i < 13; i++) {
+            $('#' + map_arr[i][10].id).addClass('wall');
+            map_arr[i][10].type = WALL;
+        }
+        for (var i = 6; i < 13; i++) {
+            $('#' + map_arr[i][13].id).addClass('wall');
+            map_arr[i][13].type = WALL;
+        }
+
+
+
+        $('#' + map_arr[10][5].id).addClass('start');
+        $('#' + map_arr[10][15].id).addClass('end');
+        map_arr[10][5].type = START;
+        map_arr[10][15].type = END;
+
+        open_list.push(map_arr[10][5]);
+
+        start = {x: 10, y: 5};
+        end = {x: 10, y: 15};
+    }
+
+    /**
+     * 将字符串和数组进行按需匹配
+     * @param template
+     * @param context
+     * @returns {void|string|XML}
+     */
+    function render(template, context) {
+
+        var tokenReg = /(\\)?\{([^\{\}\\]+)(\\)?\}/g;
+
+        return template.replace(tokenReg, function (word, slash1, token, slash2) {
+            if (slash1 || slash2) {
+                return word.replace('\\', '');
+            }
+
+            var variables = token.replace(/\s/g, '').split('.');
+            var currentObject = context;
+            var i, length, variable;
+
+            for (i = 0, length = variables.length; i < length; ++i) {
+                variable = variables[i];
+                currentObject = currentObject[variable];
+                if (currentObject === undefined || currentObject === null) return '';
+            }
+            return currentObject;
+        })
+    }
+
+</script>
+</html>

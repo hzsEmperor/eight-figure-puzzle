@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="http://apps.bdimg.com/libs/jquery/1.10.2/jquery.min.js"></script>
+    <style>
+        body {
+            text-align: center;
+            width: 100%;
+        }
+
+        #map {
+            vertical-align: middle;
+            width: 300px;
+            height: 300px;
+        }
+
+        .node {
+            width: 88px;
+            height: 88px;
+            line-height: 28px;
+            text-align: center;
+            color: black;
+            float: left;
+            font-size: 40px;
+            padding: 5px;
+            color: #545a58;
+            font-weight: 900;
+            background-size: 100% auto;
+        }
+
+        .empty {
+            background-color: #fff;
+        }
+
+        .open {
+            color: #fff;
+            background-color: #1bd1a5;
+        }
+
+        .wall {
+            color: #fff;
+            background-color: #574266;
+        }
+
+        .start {
+            color: #fff;
+            background-color: #ffcc25;
+        }
+
+        .end {
+            color: #fff;
+            background-color: #ff461f;
+        }
+
+        .current {
+            color: #fff;
+            background-color: #fff143;
+        }
+
+        .close {
+            color: #fff;
+            background-color: #ac5d8e;
+            -webkit-box-shadow: 0 0 10px inset rgba(0, 57, 204, .5);
+            -moz-box-shadow: 0 0 10px inset rgba(0, 57, 204, .5);
+            box-shadow: 0 0 10px inset rgba(0, 57, 204, .5);
+        }
+
+        span {
+
+        }
+
+        .top-left {
+            float: left;
+            display: block;
+            color: #ff461f;
+            font-weight: 100;
+            font-size: 20px;
+            margin-left: 10px;
+        }
+
+        .bottom-left {
+            float: left;
+            color: #0100ff;
+            font-weight: 100;
+            font-size: 20px;
+            margin-left: 10px;
+        }
+
+        .bottom-right {
+            float: right;
+            color: #0100ff;
+            font-weight: 100;
+            font-size: 20px;
+            margin-right: 10px;
+        }
+
+        .open .top-left, .open .bottom-left, .open .bottom-right, .close .top-left, .close .bottom-left, .close .bottom-right {
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map">
+</div>
+<br>
+<button onclick="GA_CREATE_GROUP()">ＣＲＥＡＴＥ　ＲＡＮＤＯＭ　ＧＲＯＵＰ</button>
+<br>
+<br>
+<button onclick="GA()">ＳＴＡＲＴ　ＧＡ　</button>
+</body>
+<script>
+    var normalDiv = "<div class='node {type}' id='{id}' " +
+            "style='background: url(images/{num}.png) left top repeat;background-size:100% auto;'>" +
+            "<span class='top-left'><span>{f}</span></span><br><br>" +
+            "<span class='bottom-left'><span>{g}</span></span>" +
+            "<span class='bottom-right'><span>{h}</span></span></div>";
+    var STEP = 1;
+    var LENGTH_MINUS_ONE = 2;
+    var LENGTH = 3;
+    var map = $('#map');
+    var map_arr = [];
+    var NUM_ARR = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+    var UP = '00';
+    var DOWN = '01';
+    var LEFT = '10';
+    var RIGHT = '11';
+    var MOVE = [UP, DOWN, LEFT, RIGHT];
+
+    //初始化配置参数
+    var INITGROUP = 20;
+    var INITMAXSTEPS = 50;
+    var RAT_CROSS = 0.7;
+    var RAT_VAR = 0.01;
+    var SUCCESS = "success!!!";
+    var fitMartix = [1, 5, 4, 3, 4, 3, 2, 3, 2];
+
+    var INIT_STATE;
+    var FINAL_STATE = '123456780';
+    initPro();
+    var group = [];
+    var times = 0;
+    var success_group = [];
+    var max_size = 500;
+
+    function GA_CREATE_GROUP() {
+        group = [];
+        times = 0;
+        success_group = [];
+        // step sum
+        //var randomStep = Math.ceil(Math.random() * INITMAXSTEPS);
+        var randomStep = INITMAXSTEPS;
+        // step
+        var randomMove;
+        //
+        var randomPath = '';
+        for (var init = 0; init < INITGROUP; init++) {
+            for (var step = 0; step < randomStep; step++) {
+                randomMove = MOVE[Math.floor(Math.random() * MOVE.length)];
+                randomPath += randomMove;
+            }
+            group.push(randomPath);
+            randomPath = '';
+        }
+
+        for (var i in group) {
+            console.log(group[i]);
+            var tmp = getMovedPathState(group[i], false);
+            if (tmp == 'OK') {
+                alert("ＳＵＣＣＥＳＳ");
+            }
+            else {
+                console.log(tmp)
+            }
+        }
+    }
+
+    function GA() {
+
+        if (--max_size == 0) {
+            success_group.sort(function (a, b) {
+                return a.times - b.times;
+            });
+            console.log(success_group);
+            console.log(success_group[0]);
+            console.log(success_group[success_group.length - 1]);
+            return;
+        }
+
+
+        var son_all = [];
+        var currentState;
+        var currentFit;
+        var fit_totall = 0;
+        var fit_arr = [];
+        var fit_big_zero = 0;
+        //获取适应度
+        for (var i in group) {
+            currentState = getMovedPathState(group[i], false);
+            if (currentState == FINAL_STATE) {
+                var info = getMovedPathState(group[i], true);
+                console.log("ＴＩＭＥＳ＝" + info.times);
+                console.log("ＰＡＴＨ＝" + info.path);
+                success_group.push(info);
+            }
+            currentFit = GET_FITNESS(currentState);
+            if (currentFit > 0) {
+                fit_big_zero++;
+            }
+            fit_totall += currentFit;
+            fit_arr.push(currentFit);
+        }
+
+        while (son_all.length < INITGROUP) {
+            //1、选择
+            var SELECT_GROUP = [];
+            //选择两个父代染色体
+            if (fit_big_zero >= 2) {
+                for (var q = 0; q < 2; q++) {
+                    //轮盘赌
+                    var fitTmp = 0;
+                    var randomFit = Math.random() * fit_totall;
+                    for (var i in fit_arr) {
+                        fitTmp += fit_arr[i];
+                        if (fitTmp > randomFit) {
+                            SELECT_GROUP.push(group[i]);
+                            break;
+                        }
+                    }
+                }
+            } else if (fit_big_zero == 1) {
+                for (var i in fit_arr) {
+                    if (fit_arr[i] > 0) {
+                        SELECT_GROUP.push(group[i]);
+                        break;
+                    }
+                }
+                SELECT_GROUP.push(group[Math.floor((Math.random() * group.length))]);
+            } else {
+                SELECT_GROUP.push(group[Math.floor((Math.random() * group.length))]);
+                SELECT_GROUP.push(group[Math.floor((Math.random() * group.length))]);
+            }
+            //交叉
+            var son = [];
+            var parent_father = SELECT_GROUP[0];
+            var parent_mother = SELECT_GROUP[1];
+            if (Math.random() < RAT_CROSS) {
+                var cross_point = Math.random() * parent_father.length;
+                son.push(parent_father.substr(0, cross_point) + parent_mother.substr(cross_point));
+                son.push(parent_mother.substr(0, cross_point) + parent_father.substr(cross_point));
+            } else {
+                son.push(parent_father);
+                son.push(parent_mother);
+            }
+            //变异
+            for (var i = 0; i < son.length; i++) {
+                for (var pos = 0; pos < son[i].length; pos++) {
+                    if (Math.random() < RAT_VAR) {
+                        var tmp = son[i].charAt(pos);
+                        son[i] = son[i].substr(0, pos) + (tmp == 1 ? 0 : 1) + son[i].substr(pos + 1);
+                    }
+                }
+                son[i] += MOVE[Math.floor(Math.random() * MOVE.length)];
+            }
+            son_all = son_all.concat(son);
+        }
+        group = son_all;
+        console.log(group);
+        times++;
+        return GA();
+    }
+
+    function getMovedPathState(movePath, needTimes) {
+        // up down left right .........
+        var steps = [];
+        for (var index = 0; index < movePath.length; index += 2) {
+            steps.push(movePath.charAt(index) + movePath.charAt(index + 1));
+        }
+        //当前零的索引
+        var currentZeroIndex = INIT_STATE.indexOf(0);
+        //当前九宫状态
+        var currentState = INIT_STATE.split('');
+        //上一步的方向
+        var lastStep = '';
+
+        var times = 0;
+        var real_path = '';
+        for (var i in steps) {
+            if (currentState.join('') == FINAL_STATE && !needTimes) {
+                return FINAL_STATE;
+            }
+            switch (steps[i]) {
+                case UP:
+                    if (currentZeroIndex <= 2 || lastStep == DOWN) {
+                        continue;
+                    } else {
+                        currentState[currentZeroIndex] = currentState[currentZeroIndex - LENGTH];
+                        currentState[currentZeroIndex - LENGTH] = '0';
+                        currentZeroIndex = currentZeroIndex - LENGTH;
+                        times++;
+                        real_path += UP;
+                    }
+                    break;
+                case DOWN:
+                    if (currentZeroIndex >= 6 || lastStep == UP) {
+                        continue;
+                    } else {
+                        currentState[currentZeroIndex] = currentState[currentZeroIndex + LENGTH];
+                        currentState[currentZeroIndex + LENGTH] = '0';
+                        currentZeroIndex = currentZeroIndex + LENGTH;
+                        times++;
+                        real_path += DOWN;
+                    }
+                    break;
+                case LEFT:
+                    if (currentZeroIndex % 3 == 0 || lastStep == RIGHT) {
+                        continue;
+                    } else {
+                        currentState[currentZeroIndex] = currentState[currentZeroIndex - 1];
+                        currentState[currentZeroIndex - 1] = '0';
+                        currentZeroIndex = currentZeroIndex - 1;
+                        times++;
+                        real_path += LEFT;
+                    }
+                    break;
+                case RIGHT:
+                    if ((currentZeroIndex + 1) % 3 == 0 || lastStep == LEFT) {
+                        continue;
+                    } else {
+                        currentState[currentZeroIndex] = currentState[currentZeroIndex + 1];
+                        currentState[currentZeroIndex + 1] = '0';
+                        currentZeroIndex = currentZeroIndex + 1;
+                        times++;
+                        real_path += RIGHT;
+                    }
+                    break;
+            }
+            lastStep = steps[i];
+        }
+        if (currentState.join('') == FINAL_STATE && !needTimes) {
+            return FINAL_STATE;
+        } else if (needTimes) {
+            return {
+                times: times,
+                path: real_path
+            }
+        }
+        return currentState.join('');
+    }
+
+    function GET_FITNESS(state) {
+        var fit = 0;
+        for (var i = 0; i < state.length; i++) {
+            var current = state.charAt(i);
+            var finalPos = FINAL_STATE.indexOf(current);
+            if (current == FINAL_STATE.charAt(i)) {
+                //fit += (100 - parseInt(state[i] == 0 ? 9 : state[i]) * 10);
+                fit += (fitMartix[i] ) * 10;
+            }
+            else {
+                //当前位置距最终位置的距离
+                var tmp = Math.floor(Math.abs(i - finalPos) / LENGTH) + Math.abs((i - finalPos) % LENGTH);
+                fit += (5 - tmp);
+            }
+        }
+        return fit;
+    }
+    function test(i, finalPos) {
+        return Math.floor(Math.abs(i - finalPos) / LENGTH) + Math.abs((i - finalPos) % LENGTH);
+    }
+
+    function replaceMapArr(node) {
+        for (var x = 0; x <= LENGTH_MINUS_ONE; x++) {
+            for (var y = 0; y <= LENGTH_MINUS_ONE; y++) {
+                if (map_arr[x][y].num == node.num) {
+                    map_arr[x][y] = node;
+                }
+            }
+        }
+    }
+
+    function reloadDiv() {
+        map.html('');
+        for (var x = 0; x <= LENGTH_MINUS_ONE; x++) {
+            for (var y = 0; y <= LENGTH_MINUS_ONE; y++) {
+                map.append(normalDiv.render(map_arr[x][y]));
+            }
+        }
+    }
+
+
+    function getNum(num) {
+        for (var x = 0; x <= LENGTH_MINUS_ONE; x++) {
+            for (var y = 0; y <= LENGTH_MINUS_ONE; y++) {
+                if (map_arr[x][y].num == num) {
+                    return {
+                        item: map_arr[x][y],
+                        x: x,
+                        y: y
+                    };
+                }
+            }
+        }
+    }
+    function canMove(direction, state) {
+        var zeroIndex = state.indexOf(0);
+        var around_list = [];
+        try {
+            if (node.y > 0)
+                around_list.push(map_arr[node.x][node.y - 1]);
+            if (node.y < LENGTH_MINUS_ONE)
+                around_list.push(map_arr[node.x][node.y + 1]);
+            if (node.x < LENGTH_MINUS_ONE)
+                around_list.push(map_arr[node.x + 1][node.y]);
+            if (node.x > 0)
+                around_list.push(map_arr[node.x - 1][node.y]);
+        } catch (e) {
+            console.log("error");
+            console.log(node);
+        }
+        return around_list;
+    }
+
+    function initPro() {
+        String.prototype.render = function (context) {
+            return render(this, context);
+        };
+
+        //创造随机数据
+        var random = [];
+        while (NUM_ARR.length > 0) {
+            var r = Math.floor(Math.random() * NUM_ARR.length);
+            random.push(NUM_ARR[r]);
+            NUM_ARR.splice(r, 1);
+        }
+        random = '761054823'.split('');
+        INIT_STATE = random.join('');
+
+        for (var x = 0; x <= LENGTH_MINUS_ONE; x++) {
+            var row = [];
+            for (var y = 0; y <= LENGTH_MINUS_ONE; y++) {
+                var id = x * 3 + y;
+                map.append(normalDiv.render({
+                    id: id,
+                    num: random[id],
+                }));
+                row.push({
+                    id: id,
+                    f: 0,
+                    g: 0,
+                    h: 0,
+                    num: random[id]
+                });
+            }
+            map_arr.push(row);
+        }
+    }
+
+    /**
+     * 将字符串和数组进行按需匹配
+     * @param template
+     * @param context
+     * @returns {void|string|XML}
+     */
+    function render(template, context) {
+
+        var tokenReg = /(\\)?\{([^\{\}\\]+)(\\)?\}/g;
+
+        return template.replace(tokenReg, function (word, slash1, token, slash2) {
+            if (slash1 || slash2) {
+                return word.replace('\\', '');
+            }
+
+            var variables = token.replace(/\s/g, '').split('.');
+            var currentObject = context;
+            var i, length, variable;
+
+            for (i = 0, length = variables.length; i < length; ++i) {
+                variable = variables[i];
+                currentObject = currentObject[variable];
+                if (currentObject === undefined || currentObject === null) return '';
+            }
+            return currentObject;
+        })
+    }
+
+</script>
+</html>

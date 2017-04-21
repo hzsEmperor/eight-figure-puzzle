@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="http://apps.bdimg.com/libs/jquery/1.10.2/jquery.min.js"></script>
+    <style>
+        body {
+            text-align: center;
+            width: 100%;
+        }
+
+        #map {
+            vertical-align: middle;
+            width: 300px;
+            height: 300px;
+        }
+
+        .node {
+            width: 88px;
+            height: 88px;
+            line-height: 28px;
+            text-align: center;
+            color: black;
+            float: left;
+            font-size: 40px;
+            padding: 5px;
+            color: #545a58;
+            font-weight: 900;
+            background-size: 100% auto;
+        }
+
+        .empty {
+            background-color: #fff;
+        }
+
+        .open {
+            color: #fff;
+            background-color: #1bd1a5;
+        }
+
+        .wall {
+            color: #fff;
+            background-color: #574266;
+        }
+
+        .start {
+            color: #fff;
+            background-color: #ffcc25;
+        }
+
+        .end {
+            color: #fff;
+            background-color: #ff461f;
+        }
+
+        .current {
+            color: #fff;
+            background-color: #fff143;
+        }
+
+        .close {
+            color: #fff;
+            background-color: #ac5d8e;
+            -webkit-box-shadow: 0 0 10px inset rgba(0, 57, 204, .5);
+            -moz-box-shadow: 0 0 10px inset rgba(0, 57, 204, .5);
+            box-shadow: 0 0 10px inset rgba(0, 57, 204, .5);
+        }
+
+        span {
+
+        }
+
+        .top-left {
+            float: left;
+            display: block;
+            color: #ff461f;
+            font-weight: 100;
+            font-size: 20px;
+            margin-left: 10px;
+        }
+
+        .bottom-left {
+            float: left;
+            color: #0100ff;
+            font-weight: 100;
+            font-size: 20px;
+            margin-left: 10px;
+        }
+
+        .bottom-right {
+            float: right;
+            color: #0100ff;
+            font-weight: 100;
+            font-size: 20px;
+            margin-right: 10px;
+        }
+
+        .open .top-left, .open .bottom-left, .open .bottom-right, .close .top-left, .close .bottom-left, .close .bottom-right {
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map">
+</div>
+<br>
+<button onclick="A_8()">ＮＥＸＴ　ＳＴＥＰ</button>
+</body>
+<script>
+    var normalDiv = "<div class='node {type}' id='{id}' " +
+            "style='background: url(images/{num}.png) left top repeat;background-size:100% auto;'>" +
+            "<span class='top-left'><span>{f}</span></span><br><br>" +
+            "<span class='bottom-left'><span>{g}</span></span>" +
+            "<span class='bottom-right'><span>{h}</span></span></div>";
+    var STEP = 1;
+    var LENGTH_MINUS_ONE = 2;
+    var map = $('#map');
+    var map_arr = [];
+    var NUM_ARR = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    var FINAL_STATE = '123456780';
+    var UP = 'up';
+    var DOWN = 'down';
+    var LEFT = 'left';
+    var RIGHT = 'right';
+
+
+    initPro();
+    var lastNumID = -1;
+    var times = 0;
+    //A_8();
+    function A_8() {
+        //判断是否到达终点
+        times++;
+        if (getState() == FINAL_STATE) {
+            return alert('ok\nTImes = ' + times);
+        }
+        console.log(getState());
+
+        var nodes = aroundNode(getNum(0));
+
+        var min_node;
+        var min_f;
+
+        for (var i in nodes) {
+            var node = nodes[i];
+            if (node.id == lastNumID) {
+                continue;
+            }
+            //获取 F = G + H
+            //Ｇ
+            var g = node.g + STEP;
+            console.log(node.num + " : G = " + g)
+            //H
+            var h = get_H_value(node);
+            console.log(node.num + " : H = " + h)
+            //F
+            var f = g + h;
+            console.log(node.num + " : F = " + f)
+            if (!min_node) {
+                min_node = node;
+                min_f = f;
+            } else if (min_f > f) {
+                min_node = node;
+                min_f = f;
+            }
+        }
+        lastNumID = min_node.id;
+        replaceMapArr(min_node);
+        moveZero(min_node);
+        reloadDiv();
+
+        return setTimeout(A_8, 10);
+    }
+
+    function replaceMapArr(node) {
+        for (var x = 0; x <= LENGTH_MINUS_ONE; x++) {
+            for (var y = 0; y <= LENGTH_MINUS_ONE; y++) {
+                if (map_arr[x][y].num == node.num) {
+                    map_arr[x][y] = node;
+                }
+            }
+        }
+    }
+
+    function reloadDiv() {
+        map.html('');
+        for (var x = 0; x <= LENGTH_MINUS_ONE; x++) {
+            for (var y = 0; y <= LENGTH_MINUS_ONE; y++) {
+                map.append(normalDiv.render(map_arr[x][y]));
+            }
+        }
+    }
+
+
+    function aroundNode(node) {
+        var around_list = [];
+        try {
+            if (node.y > 0)
+                around_list.push(map_arr[node.x][node.y - 1]);
+            if (node.y < LENGTH_MINUS_ONE)
+                around_list.push(map_arr[node.x][node.y + 1]);
+            if (node.x < LENGTH_MINUS_ONE)
+                around_list.push(map_arr[node.x + 1][node.y]);
+            if (node.x > 0)
+                around_list.push(map_arr[node.x - 1][node.y]);
+        } catch (e) {
+            console.log("error");
+            console.log(node);
+        }
+        return around_list;
+    }
+
+    function moveZero(itemOther) {
+        var item_0 = getNum(0);
+
+        itemOther.g = itemOther.g + STEP;
+        itemOther.h = get_H_value(itemOther);
+        itemOther.f = itemOther.g + itemOther.h;
+
+        var item_Other = getNum(itemOther.num);
+        var tmp = map_arr[item_0.x][item_0.y];
+        map_arr[item_0.x][item_0.y] = item_Other.item;
+        map_arr[item_Other.x][item_Other.y] = tmp;
+
+
+    }
+
+    function getNum(num) {
+        for (var x = 0; x <= LENGTH_MINUS_ONE; x++) {
+            for (var y = 0; y <= LENGTH_MINUS_ONE; y++) {
+                if (map_arr[x][y].num == num) {
+                    return {
+                        item: map_arr[x][y],
+                        x: x,
+                        y: y
+                    };
+                }
+            }
+        }
+    }
+
+    /**
+     *  检测地图状态是否可解，
+     *  需要目标状态逆序数和当前状态逆序数和的奇偶性一致，
+     *  例：给定一个状态为【305148267】，忽略零，逆序数为，该数字前比所有比它小的数字的个数和，f(4)=sum(3,1)=2
+     *  f(1)=0,f(2)=1,f(3)=0,f(4)=2,f(5)=1,f(6)=5,f(7)=6,f(8)=4
+     *  则该状态逆序数和为：0+1+0+2+1+5+6+4=19 奇数
+     *  默认目标状态为【123456780】，逆序数和为偶数
+     *
+     */
+    function testState(state) {
+        var sum = 0;
+        for (var x = 0; x < state.length; x++) {
+            for (var y = 0; y < x; y++) {
+                //忽略0，该数字前面所有比它小的数字的个数
+                if (state.charAt(y) != '0' &&
+                        parseInt(state.charAt(x)) > parseInt(state.charAt(y))) {
+                    sum++;
+                }
+            }
+        }
+        return sum % 2 == 0 ? true : false;
+    }
+
+    function getState() {
+        var result = "";
+        for (var x = 0; x <= LENGTH_MINUS_ONE; x++) {
+            for (var y = 0; y <= LENGTH_MINUS_ONE; y++) {
+                result += map_arr[x][y].num;
+            }
+        }
+        return result;
+    }
+
+
+    function get_H_value(node) {
+        var index = FINAL_STATE.indexOf(node.num);
+        node = getNum(0);
+        return Math.abs(Math.floor(index / 3) - node.x) + Math.abs(index % 3 - node.y);
+    }
+
+
+    function initPro() {
+        String.prototype.render = function (context) {
+            return render(this, context);
+        };
+
+        //创造随机数据
+        var random = [];
+        while (NUM_ARR.length > 0) {
+            var r = Math.floor(Math.random() * NUM_ARR.length);
+            random.push(NUM_ARR[r]);
+            NUM_ARR.splice(r, 1);
+        }
+        //random = [3, 0, 2, 5, 8, 1, 6, 4, 7];
+        random = '761054823'.split('');
+        if (!testState(random.join(''))) {
+            console.log(random.join(''));
+            //return initPro();
+        }
+
+        for (var x = 0; x <= LENGTH_MINUS_ONE; x++) {
+            var row = [];
+            for (var y = 0; y <= LENGTH_MINUS_ONE; y++) {
+                var id = x * 3 + y;
+                map.append(normalDiv.render({
+                    id: id,
+                    num: random[id],
+                }));
+                row.push({
+                    id: id,
+                    f: 0,
+                    g: 0,
+                    h: 0,
+                    num: random[id]
+                });
+            }
+            map_arr.push(row);
+        }
+    }
+
+    /**
+     * 将字符串和数组进行按需匹配
+     * @param template
+     * @param context
+     * @returns {void|string|XML}
+     */
+    function render(template, context) {
+
+        var tokenReg = /(\\)?\{([^\{\}\\]+)(\\)?\}/g;
+
+        return template.replace(tokenReg, function (word, slash1, token, slash2) {
+            if (slash1 || slash2) {
+                return word.replace('\\', '');
+            }
+
+            var variables = token.replace(/\s/g, '').split('.');
+            var currentObject = context;
+            var i, length, variable;
+
+            for (i = 0, length = variables.length; i < length; ++i) {
+                variable = variables[i];
+                currentObject = currentObject[variable];
+                if (currentObject === undefined || currentObject === null) return '';
+            }
+            return currentObject;
+        })
+    }
+
+</script>
+</html>
